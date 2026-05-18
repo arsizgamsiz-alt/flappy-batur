@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mobil Uyumlu Flappy Bird</title>
+    <title>Madalya Sistemli Flappy Batur</title>
     <style>
         body {
             margin: 0;
@@ -15,7 +15,6 @@
             height: 100vh;
             font-family: 'Courier New', Courier, monospace;
             overflow: hidden;
-            /* Mobilde ekranı kaydırmayı engelleme */
             touch-action: none;
             -webkit-touch-callout: none;
             -webkit-user-select: none;
@@ -26,7 +25,7 @@
             background-color: #70c5ce;
             box-shadow: 0 10px 20px rgba(0,0,0,0.5);
             max-width: 100%;
-            max-height: 80vh; /* Mobilde ses çubuğuna yer kalsın diye */
+            max-height: 80vh;
         }
         .volume-container {
             margin-top: 15px;
@@ -66,6 +65,9 @@ birdImg.src = "kus.png";
 const gameOverImg = new Image();
 gameOverImg.src = "oyun_bitti.png"; 
 
+const menuBgImg = new Image();
+menuBgImg.src = "menu_arka_plan.png"; 
+
 const jumpSound = new Audio("ziplama.mp3"); 
 jumpSound.volume = 0.6;
 
@@ -93,13 +95,16 @@ const pipeWidth = 60;
 const pipeGap = 160; 
 let pipeSpeed = 2.5;
 let frameCount = 0;
-let score = 0;
 
-// KONTROLLER (Klavye, Mouse ve Mobil Dokunma)
+let score = 0;
+// Tarayıcı hafızasından en yüksek skoru çekiyoruz (Yoksa 0 kabul et)
+let highScore = localStorage.getItem("flappyHighScore") ? parseInt(localStorage.getItem("flappyHighScore")) : 0;
+
+// KONTROLLER
 document.addEventListener("keydown", (e) => { if(e.code === "Space") handleInput(); });
 canvas.addEventListener("click", handleInput);
 canvas.addEventListener("touchstart", function(e) {
-    e.preventDefault(); // Sayfa kaymasını önler
+    e.preventDefault(); 
     handleInput();
 }, { passive: false });
 
@@ -125,22 +130,83 @@ function resetGameToMenu() {
     gameState = "MENU";
 }
 
+// Yeni Eklenen Madalya Çizim Fonksiyonu
+function drawMedal(x, y, type) {
+    let color = "";
+    let ribbonColor = "#e74c3c"; // Kurdele rengi (Kırmızı)
+    
+    if (type === "GOLD") color = "#f1c40f";      // Altın Sarısı
+    if (type === "SILVER") color = "#bdc3c7";    // Gümüş Grisi
+    if (type === "BRONZE") color = "#d35400";    // Bronz Turuncusu
+
+    // Kurdele Çizimi
+    ctx.fillStyle = ribbonColor;
+    ctx.beginPath();
+    ctx.moveTo(x - 10, y - 25);
+    ctx.lineTo(x, y);
+    ctx.lineTo(x + 10, y - 25);
+    ctx.fill();
+
+    // Madalya Gövdesi
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, 20, 0, Math.PI * 2);
+    ctx.fill();
+
+    // İç Çember (Detay)
+    ctx.strokeStyle = "rgba(255,255,255,0.4)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, 15, 0, Math.PI * 2);
+    ctx.stroke();
+}
+
 function loop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#70c5ce";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     if (gameState === "MENU") {
-        ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+        if (menuBgImg.complete && menuBgImg.width > 0) {
+            ctx.drawImage(menuBgImg, 0, 0, canvas.width, canvas.height);
+        } else {
+            ctx.fillStyle = "#70c5ce";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 35px Arial";
+
+        ctx.fillStyle = "#f1c40f"; 
+        ctx.font = "bold 40px 'Arial Black', Gadget, sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("FLAPPY BIRD", canvas.width / 2, canvas.height / 2 - 50);
-        ctx.font = "20px Arial";
-        ctx.fillText("Başlamak için Dokun", canvas.width / 2, canvas.height / 2 + 20);
+        ctx.shadowColor = "black";
+        ctx.shadowBlur = 8;
+        ctx.fillText("FLAPPY BATUR", canvas.width / 2, canvas.height / 2 - 90);
+        ctx.shadowBlur = 0; 
+
+        // Menüde En Yüksek Skoru Göster
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 18px Arial";
+        ctx.fillText(`🏆 EN YÜKSEK SKOR: ${highScore}`, canvas.width / 2, canvas.height / 2 - 40);
+
+        ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+        ctx.fillRect(50, canvas.height / 2 - 10, 300, 120);
+
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 16px Arial";
+        ctx.fillText("🕹️ NASIL OYNANIR?", canvas.width / 2, canvas.height / 2 + 20);
+        
+        ctx.font = "14px Arial";
+        ctx.fillStyle = "#ddd";
+        ctx.fillText("Baturu borulardan kaçır ve rekor kır!", canvas.width / 2, canvas.height / 2 + 45);
+        
+        ctx.font = "bold 18px Arial";
+        ctx.fillStyle = "#2ecc71"; 
+        ctx.fillText("BAŞLAMAK İÇİN BATURA DOKUN", canvas.width / 2, canvas.height / 2 + 90);
 
     } else if (gameState === "PLAYING") {
+        ctx.fillStyle = "#70c5ce";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
         birdVelocity += gravity;
         birdY += birdVelocity;
         
@@ -176,6 +242,12 @@ function loop() {
             let radius = birdSize / 2 - 4;
             if (birdX + radius > pipes[i].x && birdX - radius < pipes[i].x + pipeWidth &&
                 (birdY - radius < pipes[i].top || birdY + radius > canvas.height - pipes[i].bottom)) {
+                
+                // OYUN BİTTİĞİ AN: Rekor kontrolü yap ve kaydet
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem("flappyHighScore", highScore);
+                }
                 gameState = "GAMEOVER";
                 bgMusic.pause(); 
                 bgMusic.currentTime = 0;
@@ -185,6 +257,10 @@ function loop() {
         }
 
         if (birdY + birdSize/2 > canvas.height || birdY - birdSize/2 < 0) {
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem("flappyHighScore", highScore);
+            }
             gameState = "GAMEOVER";
             bgMusic.pause();
             bgMusic.currentTime = 0;
@@ -200,19 +276,43 @@ function loop() {
         ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        // Oyun Bitti Görseli
         if (gameOverImg.complete && gameOverImg.width > 0) {
-            ctx.drawImage(gameOverImg, canvas.width / 2 - 125, canvas.height / 2 - 160, 250, 250);
+            ctx.drawImage(gameOverImg, canvas.width / 2 - 125, canvas.height / 2 - 200, 250, 250);
         }
 
+        // --- YENİLENMİŞ SKOR PANELİ VE MADALYA ALANI ---
+        ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+        ctx.fillRect(40, canvas.height / 2 + 60, 320, 110);
+
         ctx.fillStyle = "#fff";
-        ctx.font = "bold 30px Arial";
+        ctx.textAlign = "left";
+        ctx.font = "bold 18px Arial";
+        ctx.fillText(`Skor: ${score}`, 70, canvas.height / 2 + 100);
+        ctx.fillText(`En Yüksek: ${highScore}`, 70, canvas.height / 2 + 140);
+
+        // Madalya Kararı Verme ve Çizdirme
         ctx.textAlign = "center";
-        ctx.fillText("OYUN BİTTİ", canvas.width / 2, canvas.height / 2 + 130);
+        if (score >= 20) {
+            drawMedal(300, canvas.height / 2 + 115, "GOLD");
+        } else if (score >= 10) {
+            drawMedal(300, canvas.height / 2 + 115, "SILVER");
+        } else if (score >= 5) {
+            drawMedal(300, canvas.height / 2 + 115, "BRONZE");
+        } else {
+            ctx.fillStyle = "#e74c3c";
+            ctx.font = "12px Arial";
+            ctx.fillText("Madalya Yok", 300, canvas.height / 2 + 120);
+        }
+
+        // Alt Bilgiler
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 24px Arial";
+        ctx.fillText("OYUN BİTTİ", canvas.width / 2, canvas.height / 2 + 210);
         
-        ctx.font = "18px Arial";
+        ctx.font = "16px Arial";
         ctx.fillStyle = "#ddd";
-        ctx.fillText(`Skorun: ${score}`, canvas.width / 2, canvas.height / 2 + 165);
-        ctx.fillText("Menüye Dönmek İçin Dokun", canvas.width / 2, canvas.height / 2 + 200);
+        ctx.fillText("Menüye Dönmek İçin Dokun", canvas.width / 2, canvas.height / 2 + 240);
     }
 
     requestAnimationFrame(loop);
