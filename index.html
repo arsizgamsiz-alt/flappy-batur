@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mobil Uyumlu Flappy Bird</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #222;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            /* Mobilde ekranı kaydırmayı engelleme */
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        canvas {
+            border: 2px solid #fff;
+            background-color: #70c5ce;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            max-width: 100%;
+            max-height: 80vh; /* Mobilde ses çubuğuna yer kalsın diye */
+        }
+        .volume-container {
+            margin-top: 15px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0,0,0,0.4);
+            padding: 8px 15px;
+            border-radius: 20px;
+        }
+        .volume-container input {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="gameCanvas" width="400" height="600"></canvas>
+
+<div class="volume-container">
+    <label for="volumeSlider">🎵 Ses:</label>
+    <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="0.4">
+    <span id="volumeValue">40%</span>
+</div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const volumeSlider = document.getElementById("volumeSlider");
+const volumeValue = document.getElementById("volumeValue");
+
+// --- MEDYA ELEMENTLERİ ---
+const birdImg = new Image();
+birdImg.src = "kus.png"; 
+
+const gameOverImg = new Image();
+gameOverImg.src = "oyun_bitti.png"; 
+
+const jumpSound = new Audio("ziplama.mp3"); 
+jumpSound.volume = 0.6;
+
+const bgMusic = new Audio("arka_plan_muzik.mp3"); 
+bgMusic.loop = true; 
+bgMusic.volume = parseFloat(volumeSlider.value);
+
+volumeSlider.addEventListener("input", function() {
+    bgMusic.volume = parseFloat(this.value);
+    volumeValue.innerText = Math.round(this.value * 100) + "%";
+});
+
+// --- OYUN DURUMLARI ---
+let gameState = "MENU"; 
+
+let birdY = 300;
+let birdX = 70;
+let birdVelocity = 0;
+const gravity = 0.4;
+const jump = -7;
+const birdSize = 50; 
+
+let pipes = [];
+const pipeWidth = 60;
+const pipeGap = 160; 
+let pipeSpeed = 2.5;
+let frameCount = 0;
+let score = 0;
+
+// KONTROLLER (Klavye, Mouse ve Mobil Dokunma)
+document.addEventListener("keydown", (e) => { if(e.code === "Space") handleInput(); });
+canvas.addEventListener("click", handleInput);
+canvas.addEventListener("touchstart", function(e) {
+    e.preventDefault(); // Sayfa kaymasını önler
+    handleInput();
+}, { passive: false });
+
+function handleInput() {
+    if (gameState === "MENU") {
+        gameState = "PLAYING";
+        bgMusic.play().catch(e => console.log("Müzik engellendi."));
+    } else if (gameState === "PLAYING") {
+        birdVelocity = jump;
+        jumpSound.currentTime = 0; 
+        jumpSound.play().catch(e => {});
+    } else if (gameState === "GAMEOVER") {
+        resetGameToMenu();
+    }
+}
+
+function resetGameToMenu() {
+    birdY = 300;
+    birdVelocity = 0;
+    pipes = [];
+    score = 0;
+    frameCount = 0;
+    gameState = "MENU";
+}
+
+function loop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#70c5ce";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (gameState === "MENU") {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 35px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("FLAPPY BIRD", canvas.width / 2, canvas.height / 2 - 50);
+        ctx.font = "20px Arial";
+        ctx.fillText("Başlamak için Dokun", canvas.width / 2, canvas.height / 2 + 20);
+
+    } else if (gameState === "PLAYING") {
+        birdVelocity += gravity;
+        birdY += birdVelocity;
+        
+        if (birdImg.complete && birdImg.width > 0) {
+            let srcX = birdImg.width * 0.1;
+            let srcY = birdImg.height * 0.2;
+            let srcW = birdImg.width * 0.8;
+            let srcH = birdImg.height * 0.7;
+            ctx.drawImage(birdImg, srcX, srcY, srcW, srcH, birdX - birdSize/2, birdY - birdSize/2, birdSize, birdSize);
+        } else {
+            ctx.fillStyle = "#f39c12";
+            ctx.beginPath();
+            ctx.arc(birdX, birdY, birdSize/2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        if (frameCount % 110 === 0) {
+            let topPipeHeight = Math.floor(Math.random() * (canvas.height - pipeGap - 120)) + 60;
+            pipes.push({ x: canvas.width, top: topPipeHeight, bottom: canvas.height - topPipeHeight - pipeGap, passed: false });
+        }
+
+        for (let i = pipes.length - 1; i >= 0; i--) {
+            pipes[i].x -= pipeSpeed;
+            ctx.fillStyle = "#2ecc71";
+            ctx.fillRect(pipes[i].x, 0, pipeWidth, pipes[i].top);
+            ctx.fillRect(pipes[i].x, canvas.height - pipes[i].bottom, pipeWidth, pipes[i].bottom);
+
+            if (!pipes[i].passed && pipes[i].x + pipeWidth < birdX) {
+                score++;
+                pipes[i].passed = true;
+            }
+
+            let radius = birdSize / 2 - 4;
+            if (birdX + radius > pipes[i].x && birdX - radius < pipes[i].x + pipeWidth &&
+                (birdY - radius < pipes[i].top || birdY + radius > canvas.height - pipes[i].bottom)) {
+                gameState = "GAMEOVER";
+                bgMusic.pause(); 
+                bgMusic.currentTime = 0;
+            }
+
+            if (pipes[i].x + pipeWidth < 0) pipes.splice(i, 1);
+        }
+
+        if (birdY + birdSize/2 > canvas.height || birdY - birdSize/2 < 0) {
+            gameState = "GAMEOVER";
+            bgMusic.pause();
+            bgMusic.currentTime = 0;
+        }
+
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 40px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(score, canvas.width / 2, 60);
+        frameCount++;
+
+    } else if (gameState === "GAMEOVER") {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        if (gameOverImg.complete && gameOverImg.width > 0) {
+            ctx.drawImage(gameOverImg, canvas.width / 2 - 125, canvas.height / 2 - 160, 250, 250);
+        }
+
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 30px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("OYUN BİTTİ", canvas.width / 2, canvas.height / 2 + 130);
+        
+        ctx.font = "18px Arial";
+        ctx.fillStyle = "#ddd";
+        ctx.fillText(`Skorun: ${score}`, canvas.width / 2, canvas.height / 2 + 165);
+        ctx.fillText("Menüye Dönmek İçin Dokun", canvas.width / 2, canvas.height / 2 + 200);
+    }
+
+    requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+
+</body>
+</html>
